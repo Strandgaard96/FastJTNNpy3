@@ -69,6 +69,12 @@ def parse_args(arg_list: list = None) -> argparse.Namespace:
     parser.add_argument("--kl_anneal_iter", type=int, default=3000)
     parser.add_argument("--print_iter", type=int, default=50)
     parser.add_argument("--save_iter", type=int, default=1000)
+    parser.add_argument(
+        "--denticity",
+        choices=["monodentate", "bidentate"],
+        type=str,
+        default="monodentate",
+    )
 
     return parser.parse_args(arg_list)
 
@@ -84,7 +90,12 @@ def main():
     sim_cutoff = float(opts.cutoff)
 
     model = JTpropVAE(
-        vocab, int(hidden_size), int(latent_size), int(opts.depthT), int(opts.depthG)
+        vocab,
+        int(hidden_size),
+        int(latent_size),
+        int(opts.depthT),
+        int(opts.depthG),
+        denticity=opts.denticity,
     ).cuda()
     print(model)
     model.load_state_dict(torch.load(opts.model_path))

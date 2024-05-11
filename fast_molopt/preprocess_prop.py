@@ -45,7 +45,20 @@ def convert(train_path, prop_path, pool, num_splits, output_path):
     with open(prop_path) as f:
         prop_data = [line.strip("\r\n ").split(",") for line in f]
     # Convert to float
-    prop_data = [[float(y) for y in x] for x in prop_data]
+    # ## Start debug
+    # temp_prop = []
+    # for x in prop_data:
+    #     sub =[]
+    #     try:
+    #         assert len(x)==2
+    #         sub = [float(y) for y in x]
+    #         temp_prop.append(sub)
+    #     except Exception as e:
+    #         print(x)
+    #         print(e)
+    # prop_data = temp_prop
+    # ## End debug
+    # prop_data = [[float(y) for y in x] for x in prop_data]
     print("Prop file read")
 
     # Verify that the number of properties match the number of data points

@@ -134,3 +134,5 @@ data/*/preprocessed/tensors-*.pkl
 opt_*/
 optimize-processed/
 train_*/
+nohup*.out
+samples/**/*.pkl

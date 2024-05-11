@@ -2,6 +2,7 @@ import os
 import pickle as pickle
 import random
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset
 
@@ -161,6 +162,14 @@ def tensorize_prop(tree_batch, prop_batch, vocab, assm=True, optimize=False):
     jtenc_holder, mess_dict = JTNNEncoder.tensorize(tree_batch)
     jtenc_holder = jtenc_holder
     mpn_holder = MPN.tensorize(smiles_batch)
+
+    # TL debug, with https://stackoverflow.com/a/70323486 {
+    # print(prop_batch)
+    # print(type(prop_batch))
+    prop_batch = np.vstack(prop_batch).astype(np.float)
+    # print(prop_batch)
+    # print(type(prop_batch))
+    # torch.from_numpy(a)
 
     prop_batch_tensor = torch.FloatTensor(prop_batch)
 
