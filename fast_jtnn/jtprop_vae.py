@@ -4,8 +4,7 @@ import rdkit.Chem as Chem
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-# from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt
 from rdkit import DataStructs
 from rdkit.Chem import AllChem
 
@@ -67,11 +66,16 @@ class JTpropVAE(nn.Module):
         mol_vecs = self.mpn(*mpn_holder)
         return tree_vecs, tree_mess, mol_vecs
 
-    def encode_from_smiles(self, smiles_list):
-        tree_batch = [MolTree(s) for s in smiles_list]
-        _, jtenc_holder, mpn_holder = tensorize_prop(tree_batch, self.vocab, assm=False)
-        tree_vecs, _, mol_vecs = self.encode(jtenc_holder, mpn_holder)
-        return torch.cat([tree_vecs, mol_vecs], dim=-1)
+    def encode_latent_from_smiles(self, smiles_list, props):
+        tree_batch = []
+        for i, elem in enumerate(smiles_list):
+            s = MolTree(elem)
+            tree_batch.append(s)
+        _, _, jtenc_holder, mpn_holder = tensorize_prop(
+            tree_batch, props, self.vocab, assm=False
+        )
+        z1, z2 = self.encode_latent(jtenc_holder, mpn_holder)
+        return z1, z2
 
     def encode_latent(self, jtenc_holder, mpn_holder):
         tree_vecs, _ = self.jtnn(*jtenc_holder)
@@ -130,7 +134,7 @@ class JTpropVAE(nn.Module):
         cuda0 = torch.device("cuda:0")
         first_predicted = []
         second_predicted = []
-        lr_homo = 1.5 * lr  # May need adjustment an experimentation. # 3 * lr
+        lr_homo = 1.5 * lr
         for step in range(num_iter):
             prop_val = self.propNN(cur_vec)
             # print(prop_val)
@@ -169,8 +173,8 @@ class JTpropVAE(nn.Module):
                 cur_vec = cur_vec.data + scaler * lr * norm1
             elif type == "first_second":
                 cur_vec = cur_vec.data + scaler * lr_homo * norm0 - scaler * lr * norm1
-            elif type == "second_first":
-                cur_vec = cur_vec.data + scaler * lr * norm1 - scaler * lr_homo * norm0
+            # elif type == "second_first":
+            #     cur_vec = cur_vec.data + scaler * lr * norm1 - scaler * lr_homo * norm0
             else:
                 raise ValueError
 
@@ -181,7 +185,7 @@ class JTpropVAE(nn.Module):
 
         tanimoto = []
         li, r = 0, num_iter - 1
-        counter = 0
+        counter = 1
         gradient_idx = []
         smiles_list = []
         while li < r - 1:
@@ -205,22 +209,63 @@ class JTpropVAE(nn.Module):
             else:
                 li = mid
             counter += 1
-        # fig,ax = plt.subplots(4,1,figsize=(8,12))
-        # ax = ax.flatten()
-        # plt.rcParams.update({"font.size": 22, 'xtick.labelsize': 20, 'ytick.labelsize': 20, "axes.labelsize": 20,
-        #                      "legend.fontsize": 18})
-        # ax[0].set(ylabel='Tanimoto score', xlabel='Iteration')
-        # ax[0].plot(*zip(*tanimoto), 'go-', linewidth=2)
-        # ax[1].set(ylabel='Gradient idx', xlabel='Iteration')
-        # ax[1].plot(*zip(*gradient_idx), 'bo-', linewidth=2)
-        # ax[2].set(ylabel='Predicted homo-lumo (eV)', xlabel='Iteration')
-        # ax[2].plot([x[0] for x in gradient_idx], [first_predicted[x[1]]*27.21140 for x in gradient_idx], 'ro-', linewidth=2)
-        # ax[3].set(ylabel='Predicted Ir -CM5 charge', xlabel='Iteration')
-        # ax[3].plot([x[0] for x in gradient_idx], [second_predicted[x[1]] for x in gradient_idx],color='darkorange', linestyle='-',marker='o', linewidth=2)
+        plt.rcParams.update(
+            {
+                "font.size": 24,
+                "axes.labelsize": 18,
+                "legend.fontsize": 22,
+                "xtick.labelsize": 24,
+                "ytick.labelsize": 24,
+                "legend.frameon": False,
+            }
+        )
+        fig, ax = plt.subplots(2, 2, figsize=(12, 8))
+        ax = ax.flatten()
+        ax[0].set(ylabel="Tanimoto score", xlabel="Iteration")
+        ax[0].plot(*zip(*tanimoto), "go-", linewidth=2)
+        ax[1].set(ylabel="Sampled z index", xlabel="Iteration")
+        ax[1].plot(*zip(*gradient_idx), "bo-", linewidth=2)
+        ax[2].set(ylabel="Predicted homo-lumo (eV)", xlabel="Iteration")
+        ax[2].plot(
+            [x[0] for x in gradient_idx],
+            [first_predicted[x[1]] * 27.21140 for x in gradient_idx],
+            "ro-",
+            linewidth=2,
+        )
+        ax[3].set(ylabel="Predicted Ir -CM5 charge", xlabel="Iteration")
+        ax[3].plot(
+            [x[0] for x in gradient_idx],
+            [second_predicted[x[1]] for x in gradient_idx],
+            color="darkorange",
+            linestyle="-",
+            marker="o",
+            linewidth=2,
+        )
+        [
+            ax[i].set_xticks([x[0] for x in gradient_idx]) for i in range(4)
+        ]  # set_xticks([])
         # fig.suptitle('Sampling 1000 latent vectors in direction of gradient', fontsize=16)
-        # plt.tight_layout()
-        # fig.savefig('example_sampling.png',dpi=600)
-        # fig.show()
+        plt.tight_layout()
+
+        # Print all the smiles along the gradient.
+        to_print = []
+        for v in visited:
+            tree_vec, mol_vec = torch.chunk(v, 2, dim=1)
+            new_smiles = self.decode(tree_vec, mol_vec, prob_decode=prob_decode)
+
+            prop_val = self.propNN(v)
+            # print(prop_val)
+            prediction = prop_val.tolist()
+
+            new_mol = Chem.MolFromSmiles(new_smiles)
+            fp2 = AllChem.GetMorganFingerprint(new_mol, 2)
+            sim = DataStructs.TanimotoSimilarity(fp1, fp2)
+
+            to_print.append((new_smiles, prediction, sim))
+        print(to_print)
+
+        # fig.savefig('/home/magstr/Documents/thesis/example_sampling_2.png',dpi=600)
+        fig.show()
         tree_vec, mol_vec = torch.chunk(visited[li], 2, dim=1)
         # tree_vec,mol_vec = torch.chunk(best_vec, 2, dim=1)
         new_smiles = self.decode(tree_vec, mol_vec, prob_decode=prob_decode)
@@ -430,8 +475,7 @@ class JTpropVAE(nn.Module):
                     F.softmax(scores.view(1, -1), dim=1).squeeze() + 1e-7
                 )  # prevent prob = 0
                 cand_idx = torch.multinomial(probs, probs.numel())
-            except Exception as e:
-                print(f"{e}")
+            except Exception:
                 _, cand_idx = torch.sort(scores, descending=True)
         else:
             _, cand_idx = torch.sort(scores, descending=True)

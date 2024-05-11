@@ -1,7 +1,10 @@
 import argparse
+import csv
+import json
 import os
 import sys
 import time
+from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -37,11 +40,8 @@ def parse_args(arg_list: list = None) -> argparse.Namespace:
         description="Strip substitute atoms from generated ligands"
     )
 
-    # parser.add_argument("--training_path", required=True)
     parser.add_argument("--vocab_path", required=True)
-    parser.add_argument("--model_path", required=True, type=Path)
-    parser.add_argument("--output_path", default="optimize-processed")
-    parser.add_argument("--prop_path", default=True)
+    parser.add_argument("--model_path", required=True)
     parser.add_argument("--nsplits", type=int, default=2)
 
     parser.add_argument("--hidden_size", type=int, default=450)
@@ -55,7 +55,7 @@ def parse_args(arg_list: list = None) -> argparse.Namespace:
         "--type", type=str, default="first", help="Which property to optimize on"
     )
 
-    parser.add_argument("--lr", type=float, default=0.1)
+    parser.add_argument("--lr", type=float, default=0.5)
     parser.add_argument("--clip_norm", type=float, default=50.0)
     parser.add_argument("--beta", type=float, default=0.0)
     parser.add_argument("--step_beta", type=float, default=0.002)
@@ -89,18 +89,9 @@ def main():
     model.load_state_dict(torch.load(opts.model_path))
     model = model.cuda()
 
-    output_dir = Path(f"latent_{time.strftime('%Y%m%d-%H%M%S')}")
+    output_dir = Path(f"sample_neigh_{time.strftime('%Y%m%d-%H%M%S')}")
     output_dir.mkdir(exist_ok=True)
 
-    # Preprocess data
-
-    # main_preprocess(train_path, prop_path, opts.output_path, opts.nsplits)
-    #
-    # loader = MolTreeFolder_prop(
-    #     opts.output_path, vocab, batch_size=1, shuffle=False, num_workers=6
-    # )
-
-    # Load smiles from file
     with open("../data/labeled_set/train_full.txt") as f:
         smiles = [x.strip("\r\n ") for x in f.readlines()]
     with open("../data/labeled_set/train_prop_full.txt") as f:
@@ -108,41 +99,37 @@ def main():
     # Convert to float
     props = [[float(y) for y in x] for x in prop_data]
 
-    # with open(output_dir / "opts.json", "w") as file:
-    #     json.dump(vars(opts), file)
+    np.random.seed(0)
+    x = np.random.randn(latent_size)
+    x /= np.linalg.norm(x)
 
-    # smiles=smiles[0:100]
-    # props = props[0:100]
-    def chunks(lst, n):
-        for i in range(0, len(lst), n):
-            yield lst[i : i + n]
+    y = np.random.randn(latent_size)
+    # y -= y.dot(x) * x
+    y /= np.linalg.norm(y)
 
-    smi_chunked = chunks(smiles, 50)
-    prop_chunked = chunks(props, 50)
-    arr = np.zeros(shape=(len(smiles), 56))
-    np.zeros(shape=(len(smiles), 2))
-    for i, (s, prop) in enumerate(zip(smi_chunked, prop_chunked)):
-        if i % 10 == 0:
+    for i, (s, prop) in enumerate(zip(smiles, props)):
+        print("smiles: ", s)
+        if i % 2 == 0:
             print(i)
-        start_idx = i * 50
-        end_idx = start_idx + 50
+        if i == 2:
+            break
         torch.cuda.empty_cache()
-        z1, z2 = model.encode_latent_from_smiles(s, prop)
 
-        array = z1.cpu().detach().numpy()
-        arr[start_idx:end_idx, :] = array
+        z1, z2 = model.encode_latent_from_smiles([s], [prop])
+        z_tmp = z1.cpu().detach().numpy()
 
-        # Get property prediction
-        # props= model.propNN(z1).squeeze().cpu().detach().numpy()
-        # property_predictions[start_idx:end_idx,:] = props
+        delta = 1
+        nei_mols = []
 
-    np.save(f"{opts.model_path.stem.name}_latent.npy", arr)  # save
-    # np.save(f'{opts.model_path.name}_latent_property_predictions.npy', property_predictions)  # save
-    # new_num_arr = np.load('latent.npy')  # load
-    # with open(output_dir / "latent.pkl", "wb") as f:
-    #     pickle.dump(array, f)
+        d_values = np.arange(-10, 10, 2)
+        for dx in d_values:
+            for dy in d_values:
+                z = z_tmp + x * delta * dx + y * delta * dy
+                tree_z, mol_z = torch.Tensor(z).chunk(2, dim=1)
+                tree_z, mol_z = create_var(tree_z), create_var(mol_z)
+                nei_mols.append(model.decode(tree_z, mol_z, prob_decode=False))
 
-    print("lol")
+        print(nei_mols)
 
 
 if __name__ == "__main__":
