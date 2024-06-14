@@ -1,9 +1,7 @@
 import argparse
-import json
 import logging
 import math
 import os
-import pickle as pickle
 import sys
 import time
 from pathlib import Path
@@ -71,7 +69,12 @@ def main_vae_train(
     #     vocab, int(hidden_size), int(latent_size), int(depthT), int(depthG)
     # ).cuda()
     model = JTpropVAE(
-        vocab, int(hidden_size), int(latent_size), int(depthT), int(depthG)
+        vocab,
+        int(hidden_size),
+        int(latent_size),
+        int(depthT),
+        int(depthG),
+        dropout=int(args.dropout),
     ).cuda()
     print(model)
 
@@ -81,8 +84,8 @@ def main_vae_train(
         else:
             nn.init.xavier_normal_(param)
 
-    if load_epoch > 0:
-        model.load_state_dict(torch.load(save_dir / f"model.epoch-{load_epoch}"))
+    if args.load_previous_model:
+        model.load_state_dict(torch.load(args.model_path))
 
     print(
         (
@@ -176,6 +179,8 @@ if __name__ == "__main__":
     parser.add_argument("--train", required=True)
     parser.add_argument("--vocab", required=True)
     parser.add_argument("--save_dir", required=True, type=Path)
+    parser.add_argument("--load_previous_model", action="store_true")
+    parser.add_argument("--model_path", required=True, type=Path)
     parser.add_argument("--load_epoch", type=int, default=0)
 
     parser.add_argument("--hidden_size", type=int, default=450)
@@ -183,11 +188,12 @@ if __name__ == "__main__":
     parser.add_argument("--latent_size", type=int, default=56)
     parser.add_argument("--depthT", type=int, default=20)
     parser.add_argument("--depthG", type=int, default=3)
+    parser.add_argument("--dropout", type=int, default=1, required=True)
 
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--clip_norm", type=float, default=50.0)
-    parser.add_argument("--beta", type=float, default=0.002)
-    parser.add_argument("--step_beta", type=float, default=0.01)
+    parser.add_argument("--beta", type=float, default=0)
+    parser.add_argument("--step_beta", type=float, default=0.002)
     parser.add_argument("--max_beta", type=float, default=1.0)
     parser.add_argument("--warmup", type=int, default=500)
 
