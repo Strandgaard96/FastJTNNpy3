@@ -25,7 +25,14 @@ from .nnutils import create_var
 
 class JTpropVAE(nn.Module):
     def __init__(
-        self, vocab, hidden_size, latent_size, depthT, depthG, denticity="monodentate"
+        self,
+        vocab,
+        hidden_size,
+        latent_size,
+        depthT,
+        depthG,
+        denticity="monodentate",
+        dropout=0,
     ):
         super(JTpropVAE, self).__init__()
         self.vocab = vocab
@@ -34,11 +41,9 @@ class JTpropVAE(nn.Module):
             latent_size // 2
         )  # Tree and Mol has two vectors
 
-        self.jtnn = JTNNEncoder(
-            hidden_size, depthT, nn.Embedding(vocab.size(), hidden_size)
-        )
+        self.jtnn = JTNNEncoder(hidden_size, depthT, nn.Embedding(300, hidden_size))
         self.decoder = JTNNDecoder(
-            vocab, hidden_size, latent_size, nn.Embedding(vocab.size(), hidden_size)
+            vocab, hidden_size, latent_size, nn.Embedding(300, hidden_size)
         )
 
         self.jtmpn = JTMPN(hidden_size, depthG)
@@ -56,7 +61,7 @@ class JTpropVAE(nn.Module):
             nn.Linear(self.latent_size * 2, self.hidden_size),
             nn.Tanh(),
             nn.Linear(self.hidden_size, 2),
-            nn.Dropout(1)
+            nn.Dropout(dropout),
         )
         self.prop_loss = nn.MSELoss()
         self.denticity = denticity
@@ -221,33 +226,32 @@ class JTpropVAE(nn.Module):
         ]
         tanimoto_candidates.sort(reverse=True, key=lambda x: x[0])
         tanimoto_candidates = set(tanimoto_candidates)
-        selected_idx = li
         if not is_valid_smiles(new_smiles):
             for tan, sm, grad_idx in tanimoto_candidates:
                 if is_valid_smiles(sm):
                     new_smiles = sm
-                    selected_idx = grad_idx
                     break
                 else:
+                    print("noo  not valid smiles")
                     new_smiles = None
         # Print all the smiles along the gradient.
-        to_print = []
-        for v in visited[0:selected_idx]:
-            tree_vec, mol_vec = torch.chunk(v, 2, dim=1)
-            new_smiles = self.decode(tree_vec, mol_vec, prob_decode=prob_decode)
-
-            prop_val = self.propNN(v)
-            # print(prop_val)
-            prediction = prop_val.tolist()
-
-            new_mol = Chem.MolFromSmiles(new_smiles)
-            # Chem.AssignStereochemistry(new_mol)
-            fp2 = AllChem.GetMorganFingerprint(new_mol, 2)
-            sim = DataStructs.TanimotoSimilarity(fp1, fp2)
-            # print(sim,x_batch[0].smiles,new_smiles)
-
-            to_print.append((new_smiles, prediction, sim))
-        print(to_print)
+        # to_print = []
+        # for v in visited[0:selected_idx]:
+        #     tree_vec, mol_vec = torch.chunk(v, 2, dim=1)
+        #     new_smiles = self.decode(tree_vec, mol_vec, prob_decode=prob_decode)
+        #
+        #     prop_val = self.propNN(v)
+        #     # print(prop_val)
+        #     prediction = prop_val.tolist()
+        #
+        #     new_mol = Chem.MolFromSmiles(new_smiles)
+        #     # Chem.AssignStereochemistry(new_mol)
+        #     fp2 = AllChem.GetMorganFingerprint(new_mol, 2)
+        #     sim = DataStructs.TanimotoSimilarity(fp1, fp2)
+        #     # print(sim,x_batch[0].smiles,new_smiles)
+        #
+        #     to_print.append((new_smiles, prediction, sim))
+        # print(to_print)
 
         if new_smiles is None:
             return x_batch[0].smiles, 1.0
