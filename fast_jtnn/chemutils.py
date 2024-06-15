@@ -8,10 +8,6 @@ from rdkit.Chem.EnumerateStereoisomers import (  # StereoEnumerationOptions,
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree
 
-from fast_jtnn.process_generated_ligands import (
-    process_substitute_attachment_points_bidentate,
-    process_substitute_attachment_points_monodentate,
-)
 from fast_jtnn.vocab import Vocab
 
 MST_MAX_WEIGHT = 100
@@ -453,29 +449,16 @@ def dfs_assemble(cur_mol, global_amap, fa_amap, cur_node, fa_node):
             dfs_assemble(cur_mol, global_amap, label_amap, nei_node, cur_node)
 
 
-def is_valid_smiles(smiles, denticity="monodentate"):
-    if denticity == "monodentate":
-        # Check for more than one Lithium
-        mol = Chem.MolFromSmiles(smiles)
-        # smarts = "[Be,Ir,Li]"
-        # mol_smarts = Chem.MolFromSmarts(smarts)
-        # matches = mol.GetSubstructMatches(mol_smarts)
-        # if len(matches) > 1:
-        #     return False
-        # else:
-        #     return True
-        new_mol, connection_ids = process_substitute_attachment_points_monodentate(mol)
-        if isinstance(new_mol, Chem.rdchem.Mol) and isinstance(connection_ids, int):
-            return True
-        else:
-            return False
-    elif denticity == "bidentate":
-        mol = Chem.MolFromSmiles(smiles)
-        new_mol, connection_ids = process_substitute_attachment_points_bidentate(mol)
-        if isinstance(new_mol, Chem.rdchem.Mol) and isinstance(connection_ids, list):
-            return True
-        else:
-            return False
+def is_valid_smiles(smiles):
+    # Check for more than one Lithium
+    mol = Chem.MolFromSmiles(smiles)
+    smarts = "[Be,Ir,Li]"
+    mol_smarts = Chem.MolFromSmarts(smarts)
+    matches = mol.GetSubstructMatches(mol_smarts)
+    if len(matches) > 1:
+        return False
+    else:
+        return True
 
 
 if __name__ == "__main__":
