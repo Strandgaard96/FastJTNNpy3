@@ -41,9 +41,9 @@ class JTpropVAE(nn.Module):
             latent_size // 2
         )  # Tree and Mol has two vectors
 
-        self.jtnn = JTNNEncoder(hidden_size, depthT, nn.Embedding(300, hidden_size))
+        self.jtnn = JTNNEncoder(hidden_size, depthT, nn.Embedding(600, hidden_size))
         self.decoder = JTNNDecoder(
-            vocab, hidden_size, latent_size, nn.Embedding(300, hidden_size)
+            vocab, hidden_size, latent_size, nn.Embedding(600, hidden_size)
         )
 
         self.jtmpn = JTMPN(hidden_size, depthG)
