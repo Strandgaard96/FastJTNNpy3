@@ -1,6 +1,6 @@
 # JT-VAE: Deep Generative Model for the Dual-Objective Inverse Design of Metal Complexes
 
-It contains the modified JT-VAE code for the publication ["Deep Generative Model for the Dual-Objective Inverse Design of Metal Complexes."](https://doi.org/10.26434/chemrxiv-2024-mzs7b)
+This repo contains the modified JT-VAE code for the publication ["Deep Generative Model for the Dual-Objective Inverse Design of Metal Complexes."](https://doi.org/10.26434/chemrxiv-2024-mzs7b)
 
 This repo is a fork of the repo : ["Python 3 Version of Fast Junction Tree Variational Autoencoder for Molecular Graph Generation (ICML 2018)"](https://github.com/Bibyutatsu/FastJTNNpy3)
 
@@ -9,7 +9,7 @@ Some functionality has been reworked / fixed compared to the original repo. I im
 ## Requirements
 
 The version of RDKit is very important. For newer versions of RDKit the model does not work!
-The tree decomposition has kekulization errors if this is the case.
+The tree decomposition will give kekulization errors with newer versions of RDKit.
 The [environment.yml](environment.yml) file is an export of a working conda environment that can run this model.
 
 ## Code for model training

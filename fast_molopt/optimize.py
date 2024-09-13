@@ -56,7 +56,7 @@ def parse_args(arg_list: list = None) -> argparse.Namespace:
         help="Which property to optimize on",
     )
 
-    parser.add_argument("--lr", type=float, default=0.1)
+    parser.add_argument("--lr", type=float, default=0.02)
     parser.add_argument("--clip_norm", type=float, default=50.0)
     parser.add_argument("--beta", type=float, default=0.0)
     parser.add_argument("--step_beta", type=float, default=0.002)
@@ -74,6 +74,12 @@ def parse_args(arg_list: list = None) -> argparse.Namespace:
         choices=["monodentate", "bidentate"],
         type=str,
         default="monodentate",
+    )
+    parser.add_argument(
+        "--desired_denticity",
+        choices=["monodentate", "bidentate"],
+        type=str,
+        default="bidentate",
     )
 
     return parser.parse_args(arg_list)
@@ -153,9 +159,8 @@ def main():
                 type=current_type,
                 prob_decode=False,
                 minimize=minimize,
+                desired_denticity=opts.desired_denticity,
             )
-
-            Chem.MolFromSmiles(new_smiles)
 
             # Write a row to a csv file.
             with open(output_dir / "optimize_results.csv", "a") as f1:

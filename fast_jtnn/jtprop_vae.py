@@ -139,9 +139,9 @@ class JTpropVAE(nn.Module):
         fp1 = AllChem.GetMorganFingerprint(mol, 2)
 
         z_tree_mean = self.T_mean(x_tree_vecs)
-        -torch.abs(self.T_var(x_tree_vecs))  # Following Mueller et al.
+        # -torch.abs(self.T_var(x_tree_vecs))  # Following Mueller et al.
         z_mol_mean = self.G_mean(x_mol_vecs)
-        -torch.abs(self.G_var(x_mol_vecs))  # Following Mueller et al.
+        # -torch.abs(self.G_var(x_mol_vecs))  # Following Mueller et al.
 
         mean = torch.cat([z_tree_mean, z_mol_mean], dim=1)
         cur_vec = create_var(mean.data, True)
@@ -223,6 +223,14 @@ class JTpropVAE(nn.Module):
 
             cur_vec = create_var(cur_vec, True)
             visited.append(cur_vec)
+        # all_smiles = []
+        # for elem in visited:
+        #     tree_vec, mol_vec = torch.chunk(elem, 2, dim=1)
+        #     new_smiles = self.decode(tree_vec, mol_vec, prob_decode=prob_decode)
+        #     print(new_smiles)
+        #     all_smiles.append(new_smiles)
+        #
+        # sys.exit()
 
         # Now we want to get the best possible vectors.
         tanimoto = []
